@@ -24,7 +24,7 @@ class PreventionDetectors:
 
     tracker = CentroidTracker(maxDisappeared=30, maxDistance=90)  # "maxDisappeared" is the number of frame that the tracker wait before delete the ID of a person if leave the camera view.
 
-    persons_count = 0
+    gathering_info = dict()
 
     # Function that apply the "non max supression" algorithm.
     @staticmethod
@@ -69,7 +69,7 @@ class PreventionDetectors:
             print("Exception occurred in non_max_suppression : {}".format(e))
 
     @staticmethod
-    def detect(frame, detect_gathering, detect_social_distancing, enable_sound, MIN_CONFIDENCE, MAX_PERSONS, MIN_DISTANCE):
+    def detect(frame, detect_gathering, detect_social_distancing, enable_sound, enable_people_limit, MIN_CONFIDENCE, MAX_PERSONS, MIN_DISTANCE, TIME_LIMIT):
         (height, width) = frame.shape[:2]
 
         # Make a blob to every frame in the video. OpenCV’s new deep neural network (dnn) module contains a function that can be used for preprocessing images and preparing them for classification via pre-trained deep learning models. This function is used to make a "mean image" with a mean subtraction.
@@ -129,7 +129,7 @@ class PreventionDetectors:
 
         red_zone_list = []  # The list of people too close to each other, so that violate the social distance.
 
-        if detect_social_distancing:
+        if detect_social_distancing or detect_gathering:
             for (personID1, data1), (personID2, data2) in combinations(persons_centroid.items(), 2):  # The "combinations()" method match every person in the dictionary 2 per time, so if I have 3 person the matchs are: 0 1, 0 2, 1 2.
                 dx, dy = data1[0] - data2[0], data1[1] - data2[1]
                 distance = math.sqrt(dx * dx + dy * dy)
@@ -137,37 +137,62 @@ class PreventionDetectors:
                 if distance < MIN_DISTANCE:  # 70.0 is the minimum social distance threshold.
                     if personID1 not in red_zone_list:
                         red_zone_list.append(personID1)
+
                     if personID2 not in red_zone_list:
                         red_zone_list.append(personID2)
 
+                    if personID1 not in PreventionDetectors.gathering_info:
+                        PreventionDetectors.gathering_info[personID1] = 1
+                    else:
+                        PreventionDetectors.gathering_info[personID1] += 1
+
+                    if personID2 not in PreventionDetectors.gathering_info:
+                        PreventionDetectors.gathering_info[personID2] = 1
+                    else:
+                        PreventionDetectors.gathering_info[personID2] += 1
+
                     cv2.line(frame, (data1[0], data1[1]), (data2[0], data2[1]), (0, 150, 255), 2)  # Draw the line between to person too close to each other.
 
+            for (personID1, data1), (personID2, data2) in combinations(persons_centroid.items(), 2):
+                if personID1 not in red_zone_list and personID1 in PreventionDetectors.gathering_info:
+                    PreventionDetectors.gathering_info.pop(personID1)
+
+                if personID2 not in red_zone_list and personID2 in PreventionDetectors.gathering_info:
+                    PreventionDetectors.gathering_info.pop(personID2)
+
+        gathering_detected = False
+
         for (personID, data) in persons_centroid.items():
-            if personID in red_zone_list:
+            if personID in red_zone_list and not detect_gathering:
                 cv2.rectangle(frame, (data[2], data[3]), (data[4], data[5]), (0, 0, 255), 2)
+            elif personID in red_zone_list and detect_gathering and PreventionDetectors.gathering_info[personID] > TIME_LIMIT:
+                cv2.rectangle(frame, (data[2], data[3]), (data[4], data[5]), (0, 0, 255), 2)
+                gathering_detected = True
             else:
                 cv2.rectangle(frame, (data[2], data[3]), (data[4], data[5]), (0, 255, 0), 2)
 
-        gathering_detected = False
+        people_limit_exceeded = False
         social_distance_violated = False
         persons_count = len(subjects)
         printable_persons_count = "Persons count: {}".format(persons_count)
-        if detect_gathering and persons_count < MAX_PERSONS:
+        if enable_people_limit and persons_count < MAX_PERSONS:
             cv2.putText(frame, printable_persons_count, (20, 40), cv2.FONT_ITALIC, 0.5, (0, 255, 0), 1)
-        elif detect_gathering and persons_count >= MAX_PERSONS:
-            gathering_detected = True
+        elif enable_people_limit and persons_count >= MAX_PERSONS:
+            people_limit_exceeded = True
             cv2.putText(frame, printable_persons_count, (20, 40), cv2.FONT_ITALIC, 0.5, (0, 0, 255), 1)
-            cv2.putText(frame, "ASSEMBRAMENTO RILEVATO!", (20, 60), cv2.FONT_ITALIC, 0.5, (0, 0, 255), 1)
+            cv2.putText(frame, "NUMERO MASSIMO DI PERSONE SUPERATO!", (20, 60), cv2.FONT_ITALIC, 0.5, (0, 0, 255), 1)
         else:
             cv2.putText(frame, printable_persons_count, (20, 40), cv2.FONT_ITALIC, 0.5, (0, 255, 0), 1)
 
+        if gathering_detected:
+            cv2.putText(frame, "ASSEMBRAMENTO RILEVATO!", (20, 80), cv2.FONT_ITALIC, 0.5, (0, 0, 255), 1)
 
-
-        if red_zone_list:  # If "red_zone_list" is not empty, someone violated the social distance.
+        if red_zone_list and detect_social_distancing:  # If "red_zone_list" is not empty, someone violated the social distance.
             social_distance_violated = True
-            cv2.putText(frame, "DISTANZIAMENTO SOCIALE VIOLATO!", (20, 80), cv2.FONT_ITALIC, 0.5, (0, 0, 255), 1)
+            cv2.putText(frame, "DISTANZIAMENTO SOCIALE VIOLATO!", (20, 100), cv2.FONT_ITALIC, 0.5, (0, 0, 255), 1)
 
-        if enable_sound and (gathering_detected or social_distance_violated):
+
+        if enable_sound and (people_limit_exceeded or social_distance_violated or gathering_detected):
             SoundPlayer.playWarning()
         else:
             SoundPlayer.stopWarning()
