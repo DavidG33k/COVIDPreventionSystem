@@ -3,9 +3,9 @@ import pygame
 
 class SoundPlayer:
 
-    pygame.init()
-    pygame.mixer.music.set_volume(0.2)
-    pygame.mixer.music.load('sounds/warning.wav')
+    #pygame.init()
+    #pygame.mixer.music.set_volume(0.2)
+    #pygame.mixer.music.load('sounds/warning.wav')
 
     @staticmethod
     def playWarning():
