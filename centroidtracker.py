@@ -25,6 +25,12 @@ class CentroidTracker:
         # distance we'll start to mark the object as "disappeared"
         self.maxDistance = maxDistance
 
+    def reset_tracker(self):
+        self.nextObjectID = 0
+        self.objects.clear()
+        self.disappeared.clear()
+        self.bbox.clear()
+
     def register(self, centroid, inputRect):
         # when registering an object we use the next available object
         # ID to store the centroid

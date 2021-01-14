@@ -1,10 +1,12 @@
 import time
-
 import cv2
 import numpy
 import math
+from random import randint
 from itertools import combinations
+from collections import defaultdict
 from centroidtracker import CentroidTracker
+from FPSViewer import FPSViewer
 from SoundPlayer import SoundPlayer
 
 
@@ -28,6 +30,10 @@ class PreventionDetectors:
 
     gathering_info = dict()
     delay_before_pop = dict()
+    centroid_dict = defaultdict(list)
+    persons_id_list = []
+    tracklines_delay_before_append = 0
+    tracklines_colors = dict()
 
     # Function that apply the "non max supression" algorithm.
     @staticmethod
@@ -72,12 +78,20 @@ class PreventionDetectors:
             print("Exception occurred in non_max_suppression : {}".format(e))
 
     @staticmethod
-    def detect(frame, detect_gathering, detect_social_distancing, enable_sound, report_people_limit, MIN_CONFIDENCE, MAX_PERSONS, MIN_DISTANCE, TIME_LIMIT):
+    def reset():
+        PreventionDetectors.gathering_info.clear()
+        PreventionDetectors.delay_before_pop.clear()
+        PreventionDetectors.centroid_dict.clear()
+        PreventionDetectors.persons_id_list.clear()
+        PreventionDetectors.tracker.reset_tracker()
+        PreventionDetectors.tracklines_colors.clear()
+
+    @staticmethod
+    def detect(frame, detect_gathering, detect_social_distancing, enable_sound, report_people_limit, show_tracking_line, MIN_CONFIDENCE, MAX_PERSONS, MIN_DISTANCE, TIME_LIMIT, log_name_file):
         (height, width) = frame.shape[:2]
 
         # Make a blob to every frame in the video. OpenCV’s new deep neural network (dnn) module contains a function that can be used for preprocessing images and preparing them for classification via pre-trained deep learning models. This function is used to make a "mean image" with a mean subtraction.
-        blob = cv2.dnn.blobFromImage(frame, 0.007843, (width, height),
-                                     127.5)  # The second argument is used like scalefactor for the image, the last one is subtracted at RGB channels.
+        blob = cv2.dnn.blobFromImage(frame, 0.007843, (width, height), 127.5)  # The second argument is used like scalefactor for the image, the last one is subtracted at RGB channels.
 
         # Pass the blob through the network and obtain the detections and predictions.
         PreventionDetectors.detector.setInput(blob)
@@ -113,6 +127,11 @@ class PreventionDetectors:
         persons_centroid = dict()
 
         subjects = PreventionDetectors.tracker.update(rectangles)  # "subjects" contains the persons ID and the relative bounding box.
+
+        for (personID, _) in subjects.items():
+            if personID not in PreventionDetectors.tracklines_colors:
+                PreventionDetectors.tracklines_colors[personID] = ((randint(0, 255), randint(0, 255), randint(0, 255)))
+
         for (personID, boundingbox) in subjects.items():
             x1, y1, x2, y2 = boundingbox
             x1 = int(x1)
@@ -123,6 +142,29 @@ class PreventionDetectors:
             # Calculate the coordinates of the center of every person and save it on a python dictionary. This coordinates will be used to detect social distancing.
             centroidX = int((x1 + x2) / 2.0)
             centroidY = int((y1 + y2) / 2.0)
+
+            # _______________________________________Part to draw tracking lines________________________________________
+            if show_tracking_line:
+                cv2.circle(frame, (centroidX, centroidY), 4, PreventionDetectors.tracklines_colors[personID], -1)
+
+                PreventionDetectors.tracklines_delay_before_append += 1
+                if PreventionDetectors.tracklines_delay_before_append > 10:  # Just a delay before append the centroids of the people
+                    PreventionDetectors.centroid_dict[personID].append((centroidX, centroidY))
+                    PreventionDetectors.tracklines_delay_before_append = 0
+
+                if personID not in PreventionDetectors.persons_id_list:
+                    PreventionDetectors.persons_id_list.append(personID)
+                    cv2.line(frame, (centroidX, centroidY), (centroidX, centroidY), PreventionDetectors.tracklines_colors[personID], 2)
+                else:
+                    for i in range(len(PreventionDetectors.centroid_dict[personID])):
+                        if not i + 1 == len(PreventionDetectors.centroid_dict[personID]):
+                            start_line = (PreventionDetectors.centroid_dict[personID][i][0], PreventionDetectors.centroid_dict[personID][i][1])
+                            end_line = (PreventionDetectors.centroid_dict[personID][i + 1][0], PreventionDetectors.centroid_dict[personID][i + 1][1])
+                            cv2.line(frame, start_line, end_line, PreventionDetectors.tracklines_colors[personID], 2)
+
+                if len(PreventionDetectors.centroid_dict[personID]) > 5:  # max lenght of tracklines
+                    PreventionDetectors.centroid_dict[personID].pop(0)
+            # __________________________________________________________________________________________________________
 
             persons_centroid[personID] = (centroidX, centroidY, x1, y1, x2, y2)
 
@@ -158,19 +200,17 @@ class PreventionDetectors:
 
             for (personID1, data1), (personID2, data2) in combinations(persons_centroid.items(), 2):
 
-                if personID1 not in red_zone_list and personID1 in PreventionDetectors.gathering_info and PreventionDetectors.gathering_info[personID1][2] >= 50:
+                if personID1 not in red_zone_list and personID1 in PreventionDetectors.gathering_info and PreventionDetectors.gathering_info[personID1][2] >= FPSViewer.fps*3:
                     PreventionDetectors.gathering_info.pop(personID1)
                 elif personID1 not in red_zone_list and personID1 in PreventionDetectors.gathering_info:
                     PreventionDetectors.gathering_info[personID1][2] += 1
-                    print('Sono ID ' + str(personID1) + ' e incremento il mio contatore: ' + str(PreventionDetectors.gathering_info[personID1][2]))
                 elif personID1 in red_zone_list and personID1 in PreventionDetectors.gathering_info and PreventionDetectors.gathering_info[personID1][2] != 1:
                     PreventionDetectors.gathering_info[personID1][2] = 1
 
-                if personID2 not in red_zone_list and personID2 in PreventionDetectors.gathering_info and PreventionDetectors.gathering_info[personID2][2] >= 50:
+                if personID2 not in red_zone_list and personID2 in PreventionDetectors.gathering_info and PreventionDetectors.gathering_info[personID2][2] >= FPSViewer.fps*3:
                     PreventionDetectors.gathering_info.pop(personID2)
                 elif personID2 not in red_zone_list and personID2 in PreventionDetectors.gathering_info:
                     PreventionDetectors.gathering_info[personID2][2] += 1
-                    print('Sono ID ' + str(personID2) + ' e incremento il mio contatore: ' + str(PreventionDetectors.gathering_info[personID2][2]))
                 elif personID2 in red_zone_list and personID2 in PreventionDetectors.gathering_info and PreventionDetectors.gathering_info[personID2][2] != 1:
                     PreventionDetectors.gathering_info[personID2][2] = 1
 
@@ -183,20 +223,20 @@ class PreventionDetectors:
             if personID in red_zone_list and not detect_gathering:
                 cv2.rectangle(frame, (data[2], data[3]), (data[4], data[5]), (0, 0, 255), 2)
 
-                with open("output/log.txt", "a") as file:
+                with open("output/" + log_name_file + ".txt", "a") as file:
                     file.write("PERSON ID " + str(personID) + "   -   " + "(X: " + str(data[0]) + ", Y: " + str(data[1]) + ")   -   " + str(time.ctime()) + "          WARNING!" + "\n")
 
             elif personID in red_zone_list and detect_gathering and PreventionDetectors.gathering_info[personID][1] - PreventionDetectors.gathering_info[personID][0] > TIME_LIMIT:
                 cv2.rectangle(frame, (data[2], data[3]), (data[4], data[5]), (0, 0, 255), 2)
                 gathering_detected = True
 
-                with open("output/log.txt", "a") as file:
+                with open("output/" + log_name_file + ".txt", "a") as file:
                     file.write("PERSON ID " + str(personID) + "   -   " + "(X: " + str(data[0]) + ", Y: " + str(data[1]) + ")   -   " + str(time.ctime()) + "          WARNING!" + "\n")
 
             else:
                 cv2.rectangle(frame, (data[2], data[3]), (data[4], data[5]), (0, 255, 0), 2)
 
-                with open("output/log.txt", "a") as file:
+                with open("output/" + log_name_file + ".txt", "a") as file:
                     file.write("PERSON ID " + str(personID) + "   -   " + "(X: " + str(data[0]) + ", Y: " + str(data[1]) + ")   -   " + str(time.ctime()) + "\n")
 
         people_limit_exceeded = False
