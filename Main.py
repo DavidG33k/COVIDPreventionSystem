@@ -32,20 +32,20 @@ def main():
     prevention_detectors_frame = [
         [sg.Checkbox('detect people', default=config['DEFAULT']['detect_people'], key='detect_people'), sg.Checkbox('detect gathering', default=config['DEFAULT']['detect_gathering'], key='detect_gathering'), sg.Checkbox('detect social distancing', default=config['DEFAULT']['detect_social_distancing'], key='detect_social_distancing'), sg.Checkbox('show tracking line', default=config['DEFAULT']['show_tracking_line'], key='show_tracking_line')],
         [sg.Text('minimum confidence (in percentage)'), sg.Slider(range=(0, config['DEFAULT']['minimum_confidence_max_slider_range']), default_value=config['DEFAULT']['minimum_default_confidence'], size=(40, 15), orientation='horizontal', key='MIN_CONFIDENCE')],
-        [sg.Text('minimum distance'), sg.Slider(range=(0, config['DEFAULT']['minimum_distance_max_slider_range']), default_value=config['DEFAULT']['minimum_default_distance'], size=(51.5, 15), orientation='horizontal', key='MIN_DISTANCE')],
+        [sg.Text('minimum social distance'), sg.Slider(range=(0, config['DEFAULT']['minimum_distance_max_slider_range']), default_value=config['DEFAULT']['minimum_default_distance'], size=(47.3, 15), orientation='horizontal', key='MIN_DISTANCE')],
         [sg.Text('gathering time limit', pad=(5, 10)), sg.Spin([i for i in range(0, int(config['DEFAULT']['time_limit_max_spin_range']))], initial_value=config['DEFAULT']['default_time_limit'], pad=(0, 10), key='TIME_LIMIT', font=('Helvetica 13')), sg.Text('seconds', pad=(5, 10))],
         [sg.Checkbox('report maximum number of people', default=config['DEFAULT']['report_people_limit'], key='report_people_limit'), sg.Spin([i for i in range(0, int(config['DEFAULT']['max_people_max_spin_range']))], initial_value=config['DEFAULT']['default_max_people'], key='MAX_PERSONS', font=('Helvetica 13'))]
     ]
 
     circle_buttons = [
         [
-            sg.ReadFormButton('', button_color=('black', sg.LOOK_AND_FEEL_TABLE['DarkTeal10']['BACKGROUND']), image_filename='resources/sound_off.png', image_size=(50, 50), image_subsample=5, border_width=0, key='sound_button'),
-            sg.ReadFormButton('', button_color=('black', sg.LOOK_AND_FEEL_TABLE['DarkTeal10']['BACKGROUND']), image_filename='resources/exit.png', image_size=(50, 50), image_subsample=5, border_width=0, key='exit_button')
+            sg.ReadFormButton('', button_color=('black', sg.LOOK_AND_FEEL_TABLE['DarkTeal10']['BACKGROUND']), image_filename='resources/sound_off_60x60.png', image_size=(60, 60), image_subsample=1, border_width=0, key='sound_button'),
+            sg.ReadFormButton('', button_color=('black', sg.LOOK_AND_FEEL_TABLE['DarkTeal10']['BACKGROUND']), image_filename='resources/exit_60x60.png', image_size=(60, 60), image_subsample=1, border_width=0, key='exit_button')
         ],
     ]
 
     logo = [
-        [sg.ReadFormButton('', button_color=('black', sg.LOOK_AND_FEEL_TABLE['DarkTeal10']['BACKGROUND']), image_filename='resources/logo1.png', image_size=(670, 120), image_subsample=3, border_width=0)],
+        [sg.ReadFormButton('', button_color=('black', sg.LOOK_AND_FEEL_TABLE['DarkTeal10']['BACKGROUND']), image_filename='resources/logo2.png', image_size=(670, 120), image_subsample=3, border_width=0)],
     ]
 
     credits = [
@@ -63,10 +63,10 @@ def main():
     layout = [
         [sg.Column(logo, justification='center')],
         [sg.Column(video_layout, justification='center')],
-        [sg.Frame('Input type choice', input_choice_frame, pad=(0, 20), font=('Helvetica 12'))],
+        [sg.Frame('Input type choice', input_choice_frame, pad=(0, 0), font=('Helvetica 12'))],
+        [sg.Frame('Logs', log_frame, pad=(0, 10), font=('Helvetica 12'))],
         [sg.Frame('Movement detector', movement_detector_frame, pad=(0, 10), font=('Helvetica 12'))],
-        [sg.Frame('Prevention detectors', prevention_detectors_frame, pad=(0, 20), font=('Helvetica 12'))],
-        [sg.Frame('Logs', log_frame, font=('Helvetica 12'))],
+        [sg.Frame('Prevention detectors', prevention_detectors_frame, pad=(0, 10), font=('Helvetica 12'))],
         [sg.Column(circle_buttons, justification='right')],
         [sg.HorizontalSeparator(color='grey')],
         [sg.Column(credits, justification='center')]
@@ -156,10 +156,10 @@ def main():
                 os.remove(f)
 
         if event == 'sound_button' and sound_enabled:
-            window['sound_button'].Update(image_filename='resources/sound_off.png', image_size=(50, 50), image_subsample=5)
+            window['sound_button'].Update(image_filename='resources/sound_off_60x60.png', image_size=(60, 60), image_subsample=1)
             sound_enabled = False
         elif event == 'sound_button' and not sound_enabled:
-            window['sound_button'].Update(image_filename='resources/sound_on.png', image_size=(50, 50), image_subsample=5)
+            window['sound_button'].Update(image_filename='resources/sound_on_60x60.png', image_size=(60, 60), image_subsample=1)
             sound_enabled = True
 
         if frame1 is not None and frame2 is not None:
