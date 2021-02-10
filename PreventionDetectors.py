@@ -2,11 +2,10 @@ import time
 import cv2
 import numpy
 import math
-from random import randint
 from itertools import combinations
-from collections import defaultdict
 from centroidtracker import CentroidTracker
 from FPSViewer import FPSViewer
+from TrackingLine import TrackingLine
 from SoundPlayer import SoundPlayer
 
 
@@ -29,11 +28,7 @@ class PreventionDetectors:
     tracker = CentroidTracker(maxDisappeared=20, maxDistance=90)  # "maxDisappeared" is the number of frame that the tracker wait before delete the ID of a person if leave the camera view.
 
     gathering_info = dict()
-    delay_before_pop = dict()
-    centroid_dict = defaultdict(list)
-    persons_id_list = []
-    tracklines_delay_before_append = 0
-    tracklines_colors = dict()
+
 
     # Function that apply the "non max supression" algorithm.
     @staticmethod
@@ -80,14 +75,13 @@ class PreventionDetectors:
     @staticmethod
     def reset():
         PreventionDetectors.gathering_info.clear()
-        PreventionDetectors.delay_before_pop.clear()
-        PreventionDetectors.centroid_dict.clear()
-        PreventionDetectors.persons_id_list.clear()
         PreventionDetectors.tracker.reset_tracker()
-        PreventionDetectors.tracklines_colors.clear()
+        TrackingLine.persons_id_list.clear()
+        TrackingLine.centroids_dict.clear()
+        TrackingLine.tracklines_colors.clear()
 
     @staticmethod
-    def detect(frame, detect_gathering, detect_social_distancing, enable_sound, report_people_limit, show_tracking_line, MIN_CONFIDENCE, MAX_PERSONS, MIN_DISTANCE, TIME_LIMIT, log_name_file):
+    def detect(frame, detect_gathering, detect_social_distancing, enable_sound, report_people_limit, show_tracking_line, show_people_ID, shows_confidence_percentage, MIN_CONFIDENCE, MAX_PERSONS, MIN_DISTANCE, TIME_LIMIT, log_name_file):
         (height, width) = frame.shape[:2]
 
         # Make a blob to every frame in the video. OpenCV’s new deep neural network (dnn) module contains a function that can be used for preprocessing images and preparing them for classification via pre-trained deep learning models. This function is used to make a "mean image" with a mean subtraction.
@@ -112,9 +106,11 @@ class PreventionDetectors:
                     person_box = all_detections[0, 0, i, 3:7] * numpy.array([width, height, width, height])
                     (startX, startY, endX, endY) = person_box.astype("int")  # "astype()" method convert the input into the type written in parentheses.
 
-                    # Print rectangles and information.
-                    info = "{}: {:.2f}%".format(PreventionDetectors.CLASSES[index], confidence * 100)
-                    cv2.putText(frame, info, (startX, startY - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    # Print the percentage of confidence
+                    if shows_confidence_percentage:
+                        info = "{}: {:.2f}%".format(PreventionDetectors.CLASSES[index], confidence * 100)
+                        cv2.putText(frame, info, (startX, startY - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+
                     # cv2.rectangle(frame, (startX, startY), (endX, endY), (255, 0, 0), 2)  # Uncomment to see noises in blue.
 
                     rectangles.append(person_box)  # "rectangles" contains all the cordinates of the persons bounding box.
@@ -128,9 +124,7 @@ class PreventionDetectors:
 
         subjects = PreventionDetectors.tracker.update(rectangles)  # "subjects" contains the persons ID and the relative bounding box.
 
-        for (personID, _) in subjects.items():
-            if personID not in PreventionDetectors.tracklines_colors:
-                PreventionDetectors.tracklines_colors[personID] = ((randint(0, 255), randint(0, 255), randint(0, 255)))
+        TrackingLine.generate_trackingline_colours(subjects)
 
         for (personID, boundingbox) in subjects.items():
             x1, y1, x2, y2 = boundingbox
@@ -143,33 +137,15 @@ class PreventionDetectors:
             centroidX = int((x1 + x2) / 2.0)
             centroidY = int((y1 + y2) / 2.0)
 
-            # _______________________________________Part to draw tracking lines________________________________________
-            if show_tracking_line:
-                cv2.circle(frame, (centroidX, centroidY), 4, PreventionDetectors.tracklines_colors[personID], -1)
-
-                PreventionDetectors.tracklines_delay_before_append += 1
-                if PreventionDetectors.tracklines_delay_before_append > 10:  # Just a delay before append the centroids of the people
-                    PreventionDetectors.centroid_dict[personID].append((centroidX, centroidY))
-                    PreventionDetectors.tracklines_delay_before_append = 0
-
-                if personID not in PreventionDetectors.persons_id_list:
-                    PreventionDetectors.persons_id_list.append(personID)
-                    cv2.line(frame, (centroidX, centroidY), (centroidX, centroidY), PreventionDetectors.tracklines_colors[personID], 2)
-                else:
-                    for i in range(len(PreventionDetectors.centroid_dict[personID])):
-                        if not i + 1 == len(PreventionDetectors.centroid_dict[personID]):
-                            start_line = (PreventionDetectors.centroid_dict[personID][i][0], PreventionDetectors.centroid_dict[personID][i][1])
-                            end_line = (PreventionDetectors.centroid_dict[personID][i + 1][0], PreventionDetectors.centroid_dict[personID][i + 1][1])
-                            cv2.line(frame, start_line, end_line, PreventionDetectors.tracklines_colors[personID], 2)
-
-                if len(PreventionDetectors.centroid_dict[personID]) > 5:  # max lenght of tracklines
-                    PreventionDetectors.centroid_dict[personID].pop(0)
-            # __________________________________________________________________________________________________________
+            if show_tracking_line:  # print tracking line
+                TrackingLine.generate_trackingline(frame, personID, centroidX, centroidY)
 
             persons_centroid[personID] = (centroidX, centroidY, x1, y1, x2, y2)
 
-            info = "ID: {}".format(personID)
-            cv2.putText(frame, info, (x1, y1 - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            # Print people's ID
+            if show_people_ID:
+                info = "ID: {}".format(personID)
+                cv2.putText(frame, info, (x1, y1 - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
 
         red_zone_list = []  # The list of people too close to each other, so that violate the social distance.
 
@@ -198,6 +174,7 @@ class PreventionDetectors:
                     cv2.line(frame, (data1[0], data1[1]), (data2[0], data2[1]), (0, 150, 255), 2)  # Draw the line between to person too close to each other.
 
 
+            # handle delay before pop a person from gathering_info dictionary
             for (personID1, data1), (personID2, data2) in combinations(persons_centroid.items(), 2):
 
                 if personID1 not in red_zone_list and personID1 in PreventionDetectors.gathering_info and PreventionDetectors.gathering_info[personID1][2] >= FPSViewer.fps*3:
@@ -215,7 +192,7 @@ class PreventionDetectors:
                     PreventionDetectors.gathering_info[personID2][2] = 1
 
 
-
+        # The remaining lines code draws the rectangles for each person, the warning texts, generate the log file and play sound.
 
         gathering_detected = False
 
@@ -248,19 +225,19 @@ class PreventionDetectors:
         elif report_people_limit and persons_count >= MAX_PERSONS:
             people_limit_exceeded = True
             cv2.putText(frame, printable_persons_count, (20, 40), cv2.FONT_ITALIC, 0.5, (0, 0, 255), 1)
-            cv2.putText(frame, "NUMERO MASSIMO DI PERSONE SUPERATO!", (20, 60), cv2.FONT_ITALIC, 0.5, (0, 0, 255), 1)
+            cv2.putText(frame, "MAXIMUM NUMBER OF PEOPLE EXCEEDED!", (20, 60), cv2.FONT_ITALIC, 0.5, (0, 0, 255), 1)
         else:
             cv2.putText(frame, printable_persons_count, (20, 40), cv2.FONT_ITALIC, 0.5, (0, 255, 0), 1)
 
         if gathering_detected:
-            cv2.putText(frame, "ASSEMBRAMENTO RILEVATO!", (20, 80), cv2.FONT_ITALIC, 0.5, (0, 0, 255), 1)
+            cv2.putText(frame, "GATHERING DETECTED!", (20, 80), cv2.FONT_ITALIC, 0.5, (0, 0, 255), 1)
 
         if red_zone_list and detect_social_distancing:  # If "red_zone_list" is not empty, someone violated the social distance.
             social_distance_violated = True
-            cv2.putText(frame, "DISTANZIAMENTO SOCIALE VIOLATO!", (20, 100), cv2.FONT_ITALIC, 0.5, (0, 0, 255), 1)
+            cv2.putText(frame, "SOCIAL DISTANCE VIOLATED!", (20, 100), cv2.FONT_ITALIC, 0.5, (0, 0, 255), 1)
 
 
-        #if enable_sound and (people_limit_exceeded or social_distance_violated or gathering_detected):
-            #SoundPlayer.playWarning()
-        #else:
-            #SoundPlayer.stopWarning()
+        if enable_sound and (people_limit_exceeded or social_distance_violated or gathering_detected):
+            SoundPlayer.playWarning()
+        else:
+            SoundPlayer.stopWarning()
