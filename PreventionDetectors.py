@@ -97,7 +97,7 @@ class PreventionDetectors:
         for i in numpy.arange(0, all_detections.shape[2]):  # numpy.arange is equivalent to the Python built-in range function, but returns an ndarray rather than a list.
             confidence = all_detections[0, 0, i, 2]  # extract the confidence associated with the prediction.
 
-            if confidence > MIN_CONFIDENCE:  # 0.5 is the minimum confidence threshold.
+            if confidence > MIN_CONFIDENCE:  # MIN_CONFIDENCE is the minimum confidence threshold.
 
                 # extract the index of the class label from the `all_detections`, then compute the coordinates of the bounding box for the object.
                 index = int(all_detections[0, 0, i, 1])
@@ -154,7 +154,7 @@ class PreventionDetectors:
                 dx, dy = data1[0] - data2[0], data1[1] - data2[1]
                 distance = math.sqrt(dx * dx + dy * dy)
 
-                if distance < MIN_DISTANCE:  # 70.0 is the minimum social distance threshold.
+                if distance < MIN_DISTANCE:  # MIN_DISTANCE is the minimum social distance threshold.
                     if personID1 not in red_zone_list:
                         red_zone_list.append(personID1)
 

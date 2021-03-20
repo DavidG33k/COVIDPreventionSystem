@@ -152,7 +152,9 @@ def main():
             FPSViewer.calculate_fps()
             FPSViewer.show_fps(frame)
 
-            imgbytes = cv2.imencode('.png', frame)[1].tobytes()
+            resized_frame = imutils.resize(frame, width=600)  # resize before print frame in output.
+
+            imgbytes = cv2.imencode('.png', resized_frame)[1].tobytes()
             window['image'].update(data=imgbytes)
 
         if video is not None:

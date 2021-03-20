@@ -25,3 +25,4 @@ class MovementDetector:
 
             if cv2.contourArea(contour) > 4000:
                 cv2.rectangle(frame1, (x, y), (x + w, y + h), (0, 0, 255), 2)
+
