@@ -17,7 +17,7 @@ def main():
 
     input_choice_frame = [
         [sg.Button('Sample video', key='sv'), sg.Button('Webcam', key='wc'), sg.Button('IP Camera', key='ip')],
-        [sg.Text('Insert a valid RTSP url (rtsp://user:pass@ip:port):', key='text_url_stream', visible=False)],
+        [sg.Text('Insert a valid RTSP/HTTP url (rtsp://user:pass@ip:port):', key='text_url_stream', visible=False)],
         [sg.InputText(key='url_stream', visible=False), sg.Button('ok', key='ok', visible=False)],
         [sg.Text('Invalid URL. Please try again!', key='invalid_url_text', text_color='red', visible=False)]
     ]
