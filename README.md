@@ -45,4 +45,34 @@ cd pycharm-XXXX.X/bin/
 
 ## Interface
 <img src="https://raw.githubusercontent.com/PySimpleGUI/PySimpleGUI/master/images/for_readme/Logo%20with%20text%20for%20GitHub%20Top.png" width="350" height="150">
-The intrface, that allow to configure the system, was developed with the PySimpleGUI library. This library simplifies many others graphics framework and work by default with Tkinter.
+The interface, that allow to configure the system, was developed with the PySimpleGUI library. This library simplifies many others graphics framework and work by default with Tkinter.
+
+<br/>
+<br/>
+
+Here are some examples of the interface and system operation.
+
+<br/>
+
+Main interface:
+
+<img src="https://github.com/DavidG33k/COVIDPreventionSystem/blob/main/examples/interface-example.png">
+
+<br/>
+
+Examples of gathering detection:
+
+<img src="https://github.com/DavidG33k/COVIDPreventionSystem/blob/main/examples/detection_clip2.png">
+<img src="https://github.com/DavidG33k/COVIDPreventionSystem/blob/main/examples/detection_clip3.png">
+
+<br/>
+
+Example of mvement detection:
+
+<img src="https://github.com/DavidG33k/COVIDPreventionSystem/blob/main/examples/movement-detector-example.png">
+
+<br/>
+
+A portion of log file:
+
+<img src="https://github.com/DavidG33k/COVIDPreventionSystem/blob/main/examples/log-example.png">
